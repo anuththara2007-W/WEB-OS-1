@@ -1,0 +1,8 @@
+/* AstraOS supplemental desktop wallpaper (used when default theme is active) */
+#desktop.wallpaper-default,
+#desktop:not([class*="wallpaper-"]) {
+  background-image: url("https://4kwallpapers.com/images/walls/thumbs_3t/6759.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
