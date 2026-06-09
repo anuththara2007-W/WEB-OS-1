@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nebula OS</title>
+    <style>
+      :root {
+        --bg-a: #050816;
+        --bg-b: #0c1230;
+        --panel: rgba(14, 18, 45, 0.68);
+        --panel-2: rgba(21, 28, 66, 0.88);
+        --line: rgba(160, 176, 255, 0.16);
+        --text: #f2f5ff;
+        --muted: #a8b4df;
+        --cyan: #7cf0ff;
+        --violet: #a78bfa;
+        --pink: #ff6b8b;
+        --shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+        --radius: 20px;
+        --taskbar-h: 64px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(
+            circle at 15% 20%,
+            rgba(124, 240, 255, 0.16),
+            transparent 28%
+          ),
+          radial-gradient(
+            circle at 82% 8%,
+            rgba(167, 139, 250, 0.2),
+            transparent 24%
+          ),
+          radial-gradient(
+            circle at 55% 90%,
+            rgba(255, 107, 139, 0.08),
+            transparent 28%
+          ),
+          linear-gradient(135deg, var(--bg-a), var(--bg-b));
+      }
+
+      .desktop {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        isolation: isolate;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        opacity: 0.22;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(circle at center, black, transparent 82%);
+      }
+
+      .orb {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        filter: blur(32px);
+        mix-blend-mode: screen;
+        opacity: 0.8;
+      }
+      .orb.one {
+        width: 320px;
+        height: 320px;
+        left: -100px;
+        top: -90px;
+        background: rgba(124, 240, 255, 0.16);
+      }
+      .orb.two {
+        width: 380px;
+        height: 380px;
+        right: -140px;
+        top: 120px;
+        background: rgba(167, 139, 250, 0.18);
+      }
+      .orb.three {
+        width: 240px;
+        height: 240px;
+        left: 36%;
+        bottom: 90px;
+        background: rgba(255, 107, 139, 0.09);
+      }
+
+      .desktop-icons {
+        position: absolute;
+        z-index: 2;
+        top: 22px;
+        left: 20px;
+        display: grid;
+        gap: 14px;
+        width: min(240px, calc(100vw - 40px));
+      }
+      .icon {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(11, 14, 34, 0.38);
+        color: var(--text);
+        backdrop-filter: blur(16px);
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        user-select: none;
+        transition:
+          transform 0.18s ease,
+          background 0.18s ease;
+        text-align: left;
+      }
+      .icon:hover {
+        transform: translateY(-2px);
+        background: rgba(20, 26, 54, 0.56);
+      }
+      .icon .glyph {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        background: linear-gradient(
+          135deg,
+          rgba(124, 240, 255, 0.22),
+          rgba(167, 139, 250, 0.22)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        flex: 0 0 auto;
+      }
+      .icon .meta {
+        display: grid;
+        gap: 2px;
+        line-height: 1.1;
+      }
+      .icon .meta strong {
+        font-size: 0.95rem;
+      }
+      .icon .meta span {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .window {
+        position: absolute;
+        z-index: 5;
+        min-width: 280px;
+        min-height: 220px;
+        max-width: calc(100vw - 18px);
+        max-height: calc(100vh - var(--taskbar-h) - 18px);
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        background: linear-gradient(
+          180deg,
+          rgba(17, 22, 50, 0.86),
+          rgba(10, 14, 31, 0.78)
+        );
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(22px) saturate(1.2);
+        overflow: hidden;
+        display: none;
+        flex-direction: column;
+      }
+      .window.open {
+        display: flex;
+      }
+      .window.active {
+        box-shadow:
+          0 30px 90px rgba(0, 0, 0, 0.58),
+          0 0 0 1px rgba(124, 240, 255, 0.14) inset;
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(
+          90deg,
+          rgba(124, 240, 255, 0.12),
+          rgba(167, 139, 250, 0.14)
+        );
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
+      }
+      .title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+      .badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .window-controls {
+        display: flex;
+        gap: 8px;
+      }
+      .control {
+        width: 34px;
+        height: 34px;
+        border: 0;
+        border-radius: 12px;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        transition:
+          transform 0.16s ease,
+          background 0.16s ease;
+      }
+      .control:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.14);
+      }
+      .control.close:hover {
+        background: rgba(255, 107, 139, 0.24);
+      }
+
+      .content {
+        height: 100%;
+        overflow: auto;
+        padding: 16px;
+      }
+
+      .panel {
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(5, 8, 20, 0.44);
+        padding: 14px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .hero h1,
+      .hero h2 {
+        margin: 0;
+        line-height: 1.05;
+      }
+      .hero h1 {
+        font-size: clamp(1.5rem, 2vw, 2.2rem);
+      }
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      .chip {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 0.82rem;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .btn {
+        border: 0;
+        color: #071021;
+        font-weight: 800;
+        border-radius: 14px;
+        padding: 11px 14px;
+        cursor: pointer;
+        background: linear-gradient(135deg, var(--cyan), #d4fffc);
+        box-shadow: 0 10px 26px rgba(124, 240, 255, 0.18);
+      }
+      .btn.secondary {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: none;
+      }
+
+      .notes-wrap {
+        display: grid;
+        gap: 12px;
+      }
+      .notes-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .note-stats {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+      textarea.note {
+        width: 100%;
+        min-height: 220px;
+        resize: none;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(2, 5, 16, 0.48);
+        color: var(--text);
+        outline: none;
+        padding: 14px;
+        font: inherit;
+        line-height: 1.5;
+      }
+
+      .calc-display {
+        width: 100%;
+        border-radius: 18px;
+        padding: 16px;
+        margin-bottom: 12px;
+        background: rgba(2, 5, 16, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: clamp(1.4rem, 2vw, 1.8rem);
+        font-weight: 800;
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .calc-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .calc-grid button {
+        border: 0;
+        border-radius: 16px;
+        padding: 14px 0;
+        font: inherit;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        transition:
+          transform 0.15s ease,
+          background 0.15s ease;
+      }
+      .calc-grid button:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.14);
+      }
+      .calc-grid button.op {
+        background: rgba(124, 240, 255, 0.16);
+      }
+      .calc-grid button.eq {
+        background: linear-gradient(135deg, var(--violet), var(--cyan));
+        color: #071021;
+        font-weight: 900;
+      }
+
+      .start-menu {
+        position: absolute;
+        left: 12px;
+        bottom: calc(var(--taskbar-h) + 22px);
+        z-index: 40;
+        width: min(340px, calc(100vw - 24px));
+        border-radius: 22px;
+        padding: 14px;
+        background: rgba(8, 12, 28, 0.84);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(24px);
+        display: none;
+      }
+      .start-menu.open {
+        display: block;
+      }
+      .start-menu h3 {
+        margin: 0 0 10px;
+      }
+      .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .menu-item {
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        color: var(--text);
+        text-align: left;
+      }
+      .menu-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .menu-item small {
+        display: block;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .taskbar {
+        position: absolute;
+        z-index: 30;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        height: var(--taskbar-h);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(8, 12, 28, 0.7);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      }
+      .start-btn,
+      .task-btn {
+        border: 0;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        height: 44px;
+        border-radius: 14px;
+        padding: 0 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+      }
+      .start-btn {
+        background: linear-gradient(
+          135deg,
+          rgba(124, 240, 255, 0.22),
+          rgba(167, 139, 250, 0.22)
+        );
+        font-weight: 800;
+      }
+      .task-buttons {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        scrollbar-width: none;
+      }
+      .task-buttons::-webkit-scrollbar {
+        display: none;
+      }
+      .task-btn.active {
+        background: rgba(124, 240, 255, 0.16);
+        border-color: rgba(124, 240, 255, 0.22);
+      }
+      .clock {
+        min-width: 120px;
+        text-align: right;
+        font-weight: 800;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 720px) {
+        .desktop-icons {
+          width: calc(100vw - 40px);
+        }
+        .taskbar {
+          left: 8px;
+          right: 8px;
+          bottom: 8px;
+        }
+        .start-menu {
+          left: 8px;
+          bottom: calc(var(--taskbar-h) + 16px);
+        }
+        .menu-grid {
+          grid-template-columns: 1fr;
+        }
+        .clock {
+          min-width: 92px;
+          font-size: 0.92rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="desktop" id="desktop">
+      <div class="orb one"></div>
+      <div class="orb two"></div>
+      <div class="orb three"></div>
+      <div class="grid"></div>
+
+      <div class="desktop-icons">
+        <button class="icon" data-open="hub">
+          <span class="glyph">☄</span>
+          <span class="meta"
+            ><strong>Control Hub</strong><span>Main dashboard</span></span
+          >
+        </button>
+        <button class="icon" data-open="notes">
+          <span class="glyph">✎</span>
+          <span class="meta"
+            ><strong>Orbit Notes</strong><span>Autosaved scratchpad</span></span
+          >
+        </button>
+        <button class="icon" id="desktopNewWindow">
+          <span class="glyph">＋</span>
+          <span class="meta"
+            ><strong>New Window</strong><span>Spawn a fresh memo</span></span
+          >
+        </button>
+      </div>
+
+      <section
+        class="window open"
+        id="hubWindow"
+        data-window-id="hub"
+        style="left: 76px; top: 94px; width: 490px; height: 340px"
+      >
+        <div class="titlebar">
+          <div class="title">
+            <span class="badge">☄</span> Nebula Control Hub
+          </div>
+          <div class="window-controls">
+            <button class="control" data-action="start-menu" title="Menu">
+              ☰
+            </button>
+            <button class="control close" data-action="close" title="Close">
+              ×
+            </button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="panel hero">
+            <h1>Welcome to Nebula OS</h1>
+            <p>
+              A browser-based fake operating system with draggable glass
+              windows, saved layouts, and built-in apps.
+            </p>
+            <div class="chip-row">
+              <span class="chip">Drag the title bar</span>
+              <span class="chip">Hide and reopen from Start</span>
+              <span class="chip">Positions save automatically</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn" data-open="notes">Open Notes</button>
+            <button class="btn secondary" data-open="calc">
+              Open Calculator
+            </button>
+            <button class="btn secondary" id="newWindowFromHub">
+              New Window
+            </button>
+          </div>
+          <div class="panel" style="margin-top: 14px">
+            <strong>System pulse</strong>
+            <div style="margin-top: 8px; color: var(--muted)" id="systemPulse">
+              Booting...
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="window open"
+        id="notesWindow"
+        data-window-id="notes"
+        style="left: 612px; top: 108px; width: 430px; height: 400px"
+      >
+        <div class="titlebar">
+          <div class="title"><span class="badge">✎</span> Orbit Notes</div>
+          <div class="window-controls">
+            <button class="control" data-action="start-menu" title="Menu">
+              ☰
+            </button>
+            <button class="control close" data-action="close" title="Close">
+              ×
+            </button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="notes-wrap">
+            <div class="notes-toolbar">
+              <div class="note-stats" id="noteStats">
+                0 words • saved locally
+              </div>
+              <div class="actions">
+                <button class="btn secondary" id="insertStamp">
+                  Insert timestamp
+                </button>
+                <button class="btn secondary" id="clearNotes">Clear</button>
+              </div>
+            </div>
+            <textarea
+              class="note"
+              id="notesText"
+              spellcheck="false"
+              placeholder="Write your ideas here..."
+            ></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="window"
+        id="calcWindow"
+        data-window-id="calc"
+        style="left: 280px; top: 462px; width: 320px; height: 416px"
+      >
+        <div class="titlebar">
+          <div class="title"><span class="badge">⌁</span> Lunar Calculator</div>
+          <div class="window-controls">
+            <button class="control" data-action="start-menu" title="Menu">
+              ☰
+            </button>
+            <button class="control close" data-action="close" title="Close">
+              ×
+            </button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="calc-display" id="calcDisplay">0</div>
+          <div class="calc-grid" id="calcKeys">
+            <button data-key="C">C</button>
+            <button data-key="⌫">⌫</button>
+            <button data-key="%">%</button>
+            <button class="op" data-key="/">÷</button>
+            <button data-key="7">7</button>
+            <button data-key="8">8</button>
+            <button data-key="9">9</button>
+            <button class="op" data-key="*">×</button>
+            <button data-key="4">4</button>
+            <button data-key="5">5</button>
+            <button data-key="6">6</button>
+            <button class="op" data-key="-">−</button>
+            <button data-key="1">1</button>
+            <button data-key="2">2</button>
+            <button data-key="3">3</button>
+            <button class="op" data-key="+">+</button>
+            <button data-key="0" style="grid-column: span 2">0</button>
+            <button data-key=".">.</button>
+            <button class="eq" data-key="=">=</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="start-menu" id="startMenu" aria-hidden="true">
+        <h3>Start</h3>
+        <div class="menu-grid">
+          <button class="menu-item" data-open="hub">
+            ☄ Control Hub<small>Launch the main dashboard</small>
+          </button>
+          <button class="menu-item" data-open="notes">
+            ✎ Orbit Notes<small>Open your autosaved notes</small>
+          </button>
+          <button class="menu-item" data-open="calc">
+            ⌁ Lunar Calculator<small>Quick math tools</small>
+          </button>
+          <button class="menu-item" id="menuNewWindow">
+            ＋ New Window<small>Spawn a scratch pad</small>
+          </button>
+        </div>
+        <div class="panel" style="margin-top: 12px">
+          <strong>Recent scratch windows</strong>
+          <div
+            id="recentWindows"
+            style="display: grid; gap: 8px; margin-top: 10px"
+          ></div>
+        </div>
+      </div>
+
+      <div class="taskbar">
+        <button class="start-btn" id="startBtn">⊞ Start</button>
+        <button class="task-btn" id="newWindowBtn">＋ New Window</button>
+        <div class="task-buttons" id="taskButtons">
+          <button class="task-btn" data-open="hub">☄ Hub</button>
+          <button class="task-btn" data-open="notes">✎ Notes</button>
+          <button class="task-btn" data-open="calc">⌁ Calc</button>
+        </div>
+        <div class="clock" id="clock">--:--</div>
+      </div>
+    </div>
+
+    <script>
+      // Desktop state is persisted in localStorage so the layout survives refreshes.
+      const STORAGE_KEY = "nebula-os-state-v1";
+      const desktop = document.getElementById("desktop");
+      const startBtn = document.getElementById("startBtn");
+      const startMenu = document.getElementById("startMenu");
+      const taskButtons = document.getElementById("taskButtons");
+      const clockEl = document.getElementById("clock");
+      const notesText = document.getElementById("notesText");
+      const noteStats = document.getElementById("noteStats");
+      const calcDisplay = document.getElementById("calcDisplay");
+      const calcKeys = document.getElementById("calcKeys");
+      const systemPulse = document.getElementById("systemPulse");
+      const recentWindows = document.getElementById("recentWindows");
+
+      const defaultState = {
+        windows: {
+          hub: { left: 76, top: 94, width: 490, height: 340, open: true },
+          notes: { left: 612, top: 108, width: 430, height: 400, open: true },
+          calc: { left: 280, top: 462, width: 320, height: 416, open: false },
+        },
+        notesText:
+          "Welcome to Nebula Notes.\n\n" +
+          "Try dragging windows, opening apps from Start, and creating a new window.\n" +
+          "Your notes are saved automatically in localStorage.\n",
+        calc: "0",
+        scratch: [],
+      };
+
+      let state = loadState();
+      let zIndex = 10;
+      let drag = null;
+      let scratchCount = state.scratch.length;
+
+      function clone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function loadState() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return clone(defaultState);
+        try {
+          const parsed = JSON.parse(raw);
+          return {
+            ...clone(defaultState),
+            ...parsed,
+            windows: {
+              ...clone(defaultState.windows),
+              ...(parsed.windows || {}),
+            },
+            scratch: Array.isArray(parsed.scratch) ? parsed.scratch : [],
+          };
+        } catch {
+          return clone(defaultState);
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function setClock() {
+        const now = new Date();
+        clockEl.textContent =
+          now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+          " · " +
+          now.toLocaleDateString([], { month: "short", day: "numeric" });
+      }
+
+      function updatePulse() {
+        const openCount = [...document.querySelectorAll(".window.open")].length;
+        systemPulse.textContent = `${openCount} window${openCount === 1 ? "" : "s"} open · layout saved in this browser`;
+      }
+
+      function updateNotesStats() {
+        const text = notesText.value.trim();
+        const words = text ? text.split(/\s+/).length : 0;
+        noteStats.textContent = `${words} words • saved locally`;
+      }
+
+      function syncTaskButtons() {
+        document.querySelectorAll("[data-open]").forEach((btn) => {
+          const id = btn.dataset.open;
+          const win = document.querySelector(`[data-window-id="${id}"]`);
+          if (!win) return;
+          btn.classList.toggle("active", win.classList.contains("open"));
+        });
+      }
+
+      function refreshRecentWindows() {
+        recentWindows.innerHTML = "";
+        if (!state.scratch.length) {
+          recentWindows.innerHTML =
+            '<div style="color:var(--muted); font-size:.88rem;">No scratch windows yet.</div>';
+          return;
+        }
+        state.scratch.forEach((item) => {
+          const win = document.querySelector(`[data-window-id="${item.id}"]`);
+          const open = win ? win.classList.contains("open") : false;
+          const button = document.createElement("button");
+          button.className = "menu-item";
+          button.style.width = "100%";
+          button.dataset.reopen = item.id;
+          button.innerHTML = `${open ? "✦" : "◌"} ${item.title}<small>${open ? "Open now" : "Click to reopen"}</small>`;
+          button.addEventListener("click", () => openWindow(item.id));
+          recentWindows.appendChild(button);
+        });
+      }
+
+      function bringToFront(win) {
+        zIndex += 1;
+        win.style.zIndex = zIndex;
+        document
+          .querySelectorAll(".window")
+          .forEach((el) => el.classList.remove("active"));
+        win.classList.add("active");
+        syncTaskButtons();
+      }
+
+      function viewportClamp(win) {
+        const maxX = Math.max(12, window.innerWidth - win.offsetWidth - 12);
+        const maxY = Math.max(12, window.innerHeight - 92 - win.offsetHeight);
+        const left = Math.min(
+          Math.max(12, parseFloat(win.style.left) || 12),
+          maxX,
+        );
+        const top = Math.min(
+          Math.max(12, parseFloat(win.style.top) || 12),
+          maxY,
+        );
+        win.style.left = `${left}px`;
+        win.style.top = `${top}px`;
+        return { left, top };
+      }
+
+      function persistWindow(win) {
+        const id = win.dataset.windowId;
+        const box = state.windows[id] || (state.windows[id] = {});
+        box.left = parseFloat(win.style.left) || 12;
+        box.top = parseFloat(win.style.top) || 12;
+        box.width = win.offsetWidth;
+        box.height = win.offsetHeight;
+        box.open = win.classList.contains("open");
+        saveState();
+        updatePulse();
+      }
+
+      function openWindow(id) {
+        const win = document.querySelector(`[data-window-id="${id}"]`);
+        if (!win) return;
+        win.classList.remove("hidden");
+        win.classList.add("open");
+        bringToFront(win);
+        state.windows[id] = state.windows[id] || {};
+        state.windows[id].open = true;
+        viewportClamp(win);
+        saveState();
+        syncTaskButtons();
+        refreshRecentWindows();
+        updatePulse();
+      }
+
+      function closeWindow(id) {
+        const win = document.querySelector(`[data-window-id="${id}"]`);
+        if (!win) return;
+        win.classList.remove("open");
+        win.classList.add("hidden");
+        state.windows[id] = state.windows[id] || {};
+        state.windows[id].open = false;
+        saveState();
+        syncTaskButtons();
+        refreshRecentWindows();
+        updatePulse();
+      }
+
+      function toggleStartMenu(force) {
+        const open =
+          typeof force === "boolean"
+            ? force
+            : !startMenu.classList.contains("open");
+        startMenu.classList.toggle("open", open);
+        startMenu.setAttribute("aria-hidden", String(!open));
+      }
+
+      function attachDrag(win) {
+        const titlebar = win.querySelector(".titlebar");
+        titlebar.addEventListener("pointerdown", (e) => {
+          if (e.target.closest("button")) return;
+          bringToFront(win);
+          const rect = win.getBoundingClientRect();
+          drag = {
+            win,
+            offsetX: e.clientX - rect.left,
+            offsetY: e.clientY - rect.top,
+          };
+          titlebar.setPointerCapture(e.pointerId);
+        });
+      }
+
+      function moveDrag(e) {
+        if (!drag) return;
+        const win = drag.win;
+        const maxX = Math.max(12, window.innerWidth - win.offsetWidth - 12);
+        const maxY = Math.max(12, window.innerHeight - 92 - win.offsetHeight);
+        const left = Math.min(Math.max(12, e.clientX - drag.offsetX), maxX);
+        const top = Math.min(Math.max(12, e.clientY - drag.offsetY), maxY);
+        win.style.left = `${left}px`;
+        win.style.top = `${top}px`;
+        updatePulse();
+      }
+
+      function stopDrag() {
+        if (!drag) return;
+        persistWindow(drag.win);
+        drag = null;
+      }
+
+      function attachWindowLogic(win) {
+        attachDrag(win);
+        win.addEventListener("pointerdown", () => bringToFront(win));
+        win.querySelectorAll('[data-action="close"]').forEach((btn) => {
+          btn.addEventListener("click", () =>
+            closeWindow(win.dataset.windowId),
+          );
+        });
+        win.querySelectorAll('[data-action="start-menu"]').forEach((btn) => {
+          btn.addEventListener("click", () => toggleStartMenu());
+        });
+      }
+
+      function createScratchWindow() {
+        scratchCount += 1;
+        const id = `scratch-${scratchCount}`;
+        const left = 120 + ((scratchCount * 28) % 260);
+        const top = 140 + ((scratchCount * 18) % 160);
+        const title = `Scratch Pad ${scratchCount}`;
+
+        const win = document.createElement("section");
+        win.className = "window open";
+        win.dataset.windowId = id;
+        win.style.left = `${left}px`;
+        win.style.top = `${top}px`;
+        win.style.width = "360px";
+        win.style.height = "300px";
+        win.innerHTML = `
+        <div class="titlebar">
+          <div class="title"><span class="badge">✦</span> ${title}</div>
+          <div class="window-controls">
+            <button class="control" data-action="start-menu" title="Menu">☰</button>
+            <button class="control close" data-action="close" title="Close">×</button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="panel" style="margin-bottom:12px;">This is a new window. Use it for quick notes, planning, or ideas.</div>
+          <textarea class="note" spellcheck="false" placeholder="Type here..."></textarea>
+        </div>
+      `;
+
+        desktop.appendChild(win);
+        state.windows[id] = { left, top, width: 360, height: 300, open: true };
+        state.scratch.push({ id, title, text: "" });
+        attachWindowLogic(win);
+
+        const area = win.querySelector("textarea");
+        area.addEventListener("input", () => {
+          const item = state.scratch.find((x) => x.id === id);
+          if (item) item.text = area.value;
+          saveState();
+        });
+
+        bringToFront(win);
+        saveState();
+        updatePulse();
+        syncTaskButtons();
+        refreshRecentWindows();
+        return win;
+      }
+
+      function evalExpression(expr) {
+        const clean = expr.replace(/[^0-9+\-*/%.() ]/g, "");
+        if (!clean.trim()) return "0";
+        const result = Function(`"use strict"; return (${clean});`)();
+        if (!Number.isFinite(result)) throw new Error("Bad math");
+        return String(result);
+      }
+
+      function updateCalculator(key) {
+        let value = calcDisplay.textContent.trim();
+        if (value === "0" && ![".", "+", "-", "*", "/"].includes(key))
+          value = "";
+
+        if (key === "C") {
+          calcDisplay.textContent = "0";
+        } else if (key === "⌫") {
+          value = value.slice(0, -1);
+          calcDisplay.textContent = value || "0";
+        } else if (key === "=") {
+          try {
+            calcDisplay.textContent = evalExpression(value);
+          } catch {
+            calcDisplay.textContent = "Error";
+            setTimeout(() => {
+              if (calcDisplay.textContent === "Error")
+                calcDisplay.textContent = "0";
+            }, 700);
+          }
+        } else {
+          calcDisplay.textContent = value + key;
+        }
+        state.calc = calcDisplay.textContent;
+        saveState();
+      }
+
+      function restoreWindows() {
+        document.querySelectorAll(".window").forEach((win) => {
+          const id = win.dataset.windowId;
+          const box = state.windows[id];
+          if (box) {
+            if (box.left != null) win.style.left = `${box.left}px`;
+            if (box.top != null) win.style.top = `${box.top}px`;
+            if (box.width != null) win.style.width = `${box.width}px`;
+            if (box.height != null) win.style.height = `${box.height}px`;
+            win.classList.toggle("open", box.open !== false);
+            win.classList.toggle("hidden", box.open === false);
+          }
+          attachWindowLogic(win);
+          viewportClamp(win);
+        });
+
+        notesText.value = state.notesText || defaultState.notesText;
+        calcDisplay.textContent = state.calc || "0";
+        updateNotesStats();
+
+        // Rebuild scratch pads from saved data.
+        state.scratch.forEach((item) => {
+          if (document.querySelector(`[data-window-id="${item.id}"]`)) return;
+          const existingBox = state.windows[item.id] || { open: true };
+          const win = document.createElement("section");
+          win.className = `window ${existingBox.open === false ? "hidden" : "open"}`;
+          win.dataset.windowId = item.id;
+          win.style.left = `${existingBox.left ?? 150}px`;
+          win.style.top = `${existingBox.top ?? 150}px`;
+          win.style.width = `${existingBox.width ?? 360}px`;
+          win.style.height = `${existingBox.height ?? 300}px`;
+          win.innerHTML = `
+          <div class="titlebar">
+            <div class="title"><span class="badge">✦</span> ${item.title}</div>
+            <div class="window-controls">
+              <button class="control" data-action="start-menu" title="Menu">☰</button>
+              <button class="control close" data-action="close" title="Close">×</button>
+            </div>
+          </div>
+          <div class="content">
+            <div class="panel" style="margin-bottom:12px;">This is a saved scratch window.</div>
+            <textarea class="note" spellcheck="false" placeholder="Type here..."></textarea>
+          </div>
+        `;
+          desktop.appendChild(win);
+          attachWindowLogic(win);
+          const area = win.querySelector("textarea");
+          area.value = item.text || "";
+          area.addEventListener("input", () => {
+            const found = state.scratch.find((x) => x.id === item.id);
+            if (found) found.text = area.value;
+            saveState();
+          });
+          viewportClamp(win);
+        });
+
+        syncTaskButtons();
+        refreshRecentWindows();
+        updatePulse();
+      }
+
+      // Buttons that open windows.
+      document.querySelectorAll("[data-open]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openWindow(btn.dataset.open);
+          toggleStartMenu(false);
+        });
+      });
+
+      document.getElementById("newWindowBtn").addEventListener("click", () => {
+        createScratchWindow();
+        toggleStartMenu(false);
+      });
+      document
+        .getElementById("desktopNewWindow")
+        .addEventListener("click", createScratchWindow);
+      document
+        .getElementById("newWindowFromHub")
+        .addEventListener("click", createScratchWindow);
+      document.getElementById("menuNewWindow").addEventListener("click", () => {
+        createScratchWindow();
+        toggleStartMenu(false);
+      });
+
+      startBtn.addEventListener("click", () => toggleStartMenu());
+      document.addEventListener("click", (e) => {
+        if (!startMenu.contains(e.target) && !startBtn.contains(e.target))
+          toggleStartMenu(false);
+      });
+
+      notesText.addEventListener("input", () => {
+        state.notesText = notesText.value;
+        updateNotesStats();
+        saveState();
+      });
+      document.getElementById("insertStamp").addEventListener("click", () => {
+        const stamp = new Date().toLocaleString();
+        notesText.value +=
+          (notesText.value && !notesText.value.endsWith("\n") ? "\n" : "") +
+          `[${stamp}] `;
+        notesText.dispatchEvent(new Event("input"));
+        notesText.focus();
+      });
+      document.getElementById("clearNotes").addEventListener("click", () => {
+        notesText.value = "";
+        notesText.dispatchEvent(new Event("input"));
+      });
+
+      calcKeys.addEventListener("click", (e) => {
+        const key = e.target.closest("button")?.dataset.key;
+        if (!key) return;
+        updateCalculator(key);
+      });
+
+      window.addEventListener("pointermove", moveDrag);
+      window.addEventListener("pointerup", stopDrag);
+      window.addEventListener("resize", () => {
+        document.querySelectorAll(".window").forEach(viewportClamp);
+      });
+
+      // Boot sequence.
+      setClock();
+      updatePulse();
+      restoreWindows();
+      refreshRecentWindows();
+      setInterval(setClock, 1000);
+      setInterval(updatePulse, 2500);
+    </script>
+  </body>
+</html>
